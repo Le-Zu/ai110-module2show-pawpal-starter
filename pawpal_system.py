@@ -94,6 +94,7 @@ class Owner:
         phone: str,
         address: str,
     ) -> None:
+        """Initialize an owner with contact details and an empty pet list."""
         self.id = id
         self.name = name
         self.email = email
@@ -130,6 +131,7 @@ class Scheduler:
     """
 
     def __init__(self, reminders_enabled: bool = True) -> None:
+        """Initialize the scheduler with an empty task list."""
         self.reminders_enabled = reminders_enabled
         self._tasks: list[Task] = []
 
@@ -146,12 +148,7 @@ class Scheduler:
         return [t for t in self._tasks if t.pet_id == pet_id]
 
     def get_tasks_for_owner(self, owner: Owner) -> list[Task]:
-        """
-        Return all tasks across every pet belonging to the owner.
-
-        Owner.get_pets() supplies the pet IDs; the Scheduler filters its
-        flat task list against that set using the pet_id foreign key.
-        """
+        """Return all tasks across every pet belonging to the given owner."""
         pet_ids = {pet.id for pet in owner.get_pets()}
         return [t for t in self._tasks if t.pet_id in pet_ids]
 
@@ -168,10 +165,7 @@ class Scheduler:
             print(f"Reminder: {task.get_details()}")
 
     def generate_schedule(self) -> dict[int, list[Task]]:
-        """
-        Group all tasks by pet_id, sorted by due date within each group.
-        Returns a dict mapping pet_id -> sorted list of tasks.
-        """
+        """Return all tasks grouped by pet_id and sorted by due date."""
         schedule: dict[int, list[Task]] = {}
         for task in self._tasks:
             schedule.setdefault(task.pet_id, []).append(task)
