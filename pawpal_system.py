@@ -1,7 +1,8 @@
 from __future__ import annotations
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta
 from enum import Enum
+from itertools import combinations
 
 
 # ---------------------------------------------------------------------------
@@ -172,3 +173,107 @@ class Scheduler:
         for tasks in schedule.values():
             tasks.sort(key=lambda t: t.due_date)
         return schedule
+
+    # ------------------------------------------------------------------
+    # Sorting
+    # ------------------------------------------------------------------
+
+    def sort_tasks_by_time(self, tasks: list[Task]) -> list[Task]:
+        """Return a new list of tasks sorted ascending by due time (HH:MM)."""
+        return sorted(tasks, key=lambda t: t.due_date.strftime("%H:%M"))
+
+    # ------------------------------------------------------------------
+    # Filtering
+    # ------------------------------------------------------------------
+
+    def filter_by_status(self, completed: bool) -> list[Task]:
+        """Return all tasks whose completion status matches the given flag."""
+        return [t for t in self._tasks if t.is_completed == completed]
+
+    def filter_by_pet_name(self, pet_name: str, owner: Owner) -> list[Task]:
+        """Return tasks assigned to the pet with the given name (case-insensitive)."""
+        matching_ids = {
+            p.id for p in owner.get_pets()
+            if p.name.lower() == pet_name.lower()
+        }
+        return [t for t in self._tasks if t.pet_id in matching_ids]
+
+    # ------------------------------------------------------------------
+    # Recurring task automation
+    # ------------------------------------------------------------------
+
+    def mark_task_complete(self, task_id: int) -> Task | None:
+        """Mark a task done and auto-schedule the next occurrence based on its frequency; returns None for ONCE tasks."""
+        task = next((t for t in self._tasks if t.id == task_id), None)
+        if task is None:
+            return None
+
+        task.complete()
+
+        delta_map = {
+            Frequency.DAILY:   timedelta(days=1),
+            Frequency.WEEKLY:  timedelta(weeks=1),
+            Frequency.MONTHLY: timedelta(days=30),
+        }
+        delta = delta_map.get(task.frequency)
+        if delta is None:                          # ONCE — nothing to schedule
+            return None
+
+        next_id   = max(t.id for t in self._tasks) + 1
+        next_task = replace(task,
+                            id=next_id,
+                            due_date=task.due_date + delta,
+                            is_completed=False)
+        self._tasks.append(next_task)
+        return next_task
+
+    # ------------------------------------------------------------------
+    # Recurring task projection
+    # ------------------------------------------------------------------
+
+    def expand_recurring(self, target_date: datetime) -> list[Task]:
+        """Return a new list of tasks projected onto target_date according to each task's frequency rule."""
+        results: list[Task] = []
+        for task in self._tasks:
+            origin = task.due_date
+            projected = origin.replace(
+                year=target_date.year,
+                month=target_date.month,
+                day=target_date.day,
+            )
+            include = False
+            if task.frequency == Frequency.DAILY:
+                include = True
+            elif task.frequency == Frequency.WEEKLY:
+                include = origin.weekday() == target_date.weekday()
+            elif task.frequency == Frequency.MONTHLY:
+                include = origin.day == target_date.day
+            elif task.frequency == Frequency.ONCE:
+                include = origin.date() == target_date.date()
+
+            if include:
+                results.append(replace(task, due_date=projected))
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Conflict detection
+    # ------------------------------------------------------------------
+
+    def detect_conflicts(self,
+                         window_minutes: int = 30,
+                         same_pet_only: bool = False) -> list[str]:
+        """Return warning strings for any two tasks scheduled within window_minutes of each other."""
+        warnings: list[str] = []
+        for a, b in combinations(self._tasks, 2):
+            if same_pet_only and a.pet_id != b.pet_id:
+                continue
+            gap_min = abs((a.due_date - b.due_date).total_seconds()) / 60
+            if gap_min <= window_minutes:
+                scope = "same pet" if a.pet_id == b.pet_id else "cross-pet"
+                warnings.append(
+                    f"⚠  [{scope}]  '{a.title}' @ {a.due_date.strftime('%I:%M %p')}"
+                    f"  ←→  '{b.title}' @ {b.due_date.strftime('%I:%M %p')}"
+                    f"  ({int(gap_min)} min apart)"
+                )
+        return warnings
