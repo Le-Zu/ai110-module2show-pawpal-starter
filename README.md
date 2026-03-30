@@ -6,7 +6,7 @@ A smart Streamlit app that helps a pet owner plan, track, and automate care task
 
 ## 📸 Demo
 
-<a href="/course_images/ai110/image.png" target="_blank"><img src="/course_images/ai110/image.png" alt="PawPal+ app screenshot showing owner profile, pet roster, task scheduler, and today's schedule with conflict detection" width="400"/></a>
+<a href="image.png" target="_blank"><img src="image.png" alt="PawPal+ app screenshot showing owner profile, pet roster, task scheduler, and today's schedule with conflict detection" width="400"/></a>
 
 ---
 
