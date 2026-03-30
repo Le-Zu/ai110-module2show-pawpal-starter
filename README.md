@@ -33,6 +33,37 @@ PawPal+ goes beyond a simple task list with four intelligent scheduling features
 | **Auto-recurring tasks** | `mark_task_complete(task_id)` | Marks a task done and immediately creates the next occurrence using Python's `timedelta` — daily tasks advance by 1 day, weekly by 7 days, monthly by 30. One-time tasks are closed with no follow-up. |
 | **Conflict detection** | `detect_conflicts(window_minutes, same_pet_only)` | Scans all unique task pairs with `itertools.combinations` and returns plain-English warning strings for any two tasks scheduled within `window_minutes` of each other. Flags both same-pet and cross-pet overlaps without crashing. |
 
+## Testing PawPal+
+
+### Run the tests
+
+```bash
+python3 -m pytest tests/test_pawpal.py -v
+```
+
+### What the tests cover
+
+The suite contains **23 tests** across six behavioral categories:
+
+| Category | Tests | What is verified |
+|---|---|---|
+| Task completion | 2 | `complete()` flips status; `reschedule()` resets date and reopens task |
+| Sorting | 3 | Chronological order after out-of-order insertion; midnight (00:00) sorts first; original list is not mutated |
+| Recurrence | 5 | Daily → +1 day; Weekly → +7 days; ONCE → `None` returned and no new task added; new task is appended to scheduler; invalid ID handled safely |
+| Conflict detection | 6 | Same-pet same-time flagged; gap beyond window ignored; boundary (exactly at limit) included; cross-pet flagged by default; cross-pet ignored with `same_pet_only=True`; empty scheduler returns no warnings |
+| Filtering | 4 | Pending-only and completed-only filters; named-pet filter returns correct subset; unknown pet name returns empty list |
+| Owner / pet relationship | 3 | Task count increases on add; `get_tasks_for_owner` excludes other owners' tasks; `remove_pet` correctly reduces count |
+
+### Confidence level
+
+**High** for core scheduling logic. All critical paths — recurring task generation, conflict detection boundaries, sort stability, and owner isolation — are covered by explicit assertions. Edge cases tested include midnight times, the exact conflict-window boundary, ONCE tasks, and cross-owner data separation.
+
+Areas that would benefit from more testing with additional time:
+- `expand_recurring()` across month/year boundaries
+- `generate_schedule()` with an empty task list
+- `Scheduler.send_reminder()` output capture
+- Full Streamlit UI integration (would require `streamlit.testing`)
+
 ## Getting started
 
 ### Setup
